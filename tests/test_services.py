@@ -28,7 +28,17 @@ class TestWeatherServiceMocking:
 
         # TODO: Assert the temperature equals 25.5
         # TODO: Assert mock_get was called once with the right URL and params
-        assert False, "TODO: Implement this test"
+        mock_response = Mock()
+        mock_response.json.return_value = {"temperature": 25.5}
+        mock_response.raise_for_status.return_value = None
+        mock_get.return_value = mock_response
+
+        weather_service = WeatherService(api_key="test")
+        temperature = weather_service.get_temperature("London")
+        assert temperature == 25.5
+        mock_get.assert_called_once_with(
+            "https://api.weather.com/current", params={"city": "London", "key": "test"}
+        )
 
     @patch("requests.get")
     def test_is_good_weather_true(self, mock_get):
@@ -40,7 +50,13 @@ class TestWeatherServiceMocking:
         # TODO: Create a WeatherService instance
         # TODO: Call is_good_weather("Paris")
         # TODO: Assert the result is True
-        assert False, "TODO: Implement this test"
+        mock_response = Mock()
+        mock_response.json.return_value = {"temperature": 25.0}
+        mock_response.raise_for_status.return_value = None
+        mock_get.return_value = mock_response
+
+        weather_service = WeatherService(api_key="test")
+        assert weather_service.is_good_weather("Paris") is True
 
     @patch("requests.get")
     def test_is_good_weather_false(self, mock_get):
@@ -51,7 +67,13 @@ class TestWeatherServiceMocking:
         # TODO: Create a WeatherService instance
         # TODO: Call is_good_weather("Berlin")
         # TODO: Assert the result is False
-        assert False, "TODO: Implement this test"
+        mock_response = Mock()
+        mock_response.json.return_value = {"temperature": 15.0}
+        mock_response.raise_for_status.return_value = None
+        mock_get.return_value = mock_response
+        weather_service = WeatherService(api_key="test")
+        result = weather_service.is_good_weather("Berlin")
+        assert result is False
 
     @patch("requests.get")
     def test_api_error_handling(self, mock_get):
@@ -61,7 +83,11 @@ class TestWeatherServiceMocking:
         # TODO: Create a WeatherService instance
         # TODO: Use pytest.raises to expect RequestException
         # TODO: Call get_temperature("Tokyo")
-        assert False, "TODO: Implement this test"
+        mock_get.side_effect = requests.exceptions.RequestException
+        weather_service = WeatherService(api_key="test")
+
+        with pytest.raises(requests.exceptions.RequestException):
+            weather_service.get_temperature("Tokyo")
 
 
 class TestWeatherServiceConfig:
@@ -77,14 +103,18 @@ class TestWeatherServiceConfig:
         # TODO: Use monkeypatch.setenv to set WEATHER_API_KEY to "key-from-env"
         # TODO: Build a service with WeatherService.from_env()
         # TODO: Assert service.api_key == "key-from-env"
-        assert False, "TODO: Implement this test"
+        monkeypatch.setenv("WEATHER_API_KEY", "key-from-env")
+        service = WeatherService.from_env()
+        assert service.api_key == "key-from-env"
 
     def test_from_env_falls_back_to_demo_key(self, monkeypatch):
         """Test the default when the variable is not set at all."""
         # TODO: Use monkeypatch.delenv with raising=False to remove WEATHER_API_KEY
         # TODO: Build a service with WeatherService.from_env()
         # TODO: Assert service.api_key == "demo"
-        assert False, "TODO: Implement this test"
+        monkeypatch.delenv("WEATHER_API_KEY", raising=False)
+        service = WeatherService.from_env()
+        assert service.api_key == "demo"
 
 
 class TestOrderProcessorMocking:
@@ -108,7 +138,20 @@ class TestOrderProcessorMocking:
         # TODO: Assert is_good_weather was called once with "Madrid"
         # TODO: Assert send_email was called once
         # TODO: Assert the email body contains "Enjoy the nice weather"
-        assert False, "TODO: Implement this test"
+        weather_service = Mock(spec=WeatherService)
+        weather_service.is_good_weather.return_value = True
+        notification_service = Mock(spec=NotificationService)
+        notification_service.send_email.return_value = True
+
+        processor = OrderProcessor(weather_service, notification_service)
+        result = processor.process_order("ORD-001", customer_email, "Madrid")
+
+        assert result["order_id"] == "ORD-001"
+        assert result["notification_sent"] is True
+        assert result["is_good_weather"] is True
+        weather_service.is_good_weather.assert_called_once_with("Madrid")
+        notification_service.send_email.assert_called_once()
+        assert "Enjoy the nice weather" in notification_service.send_email.call_args.args[2]
 
     def test_process_order_with_bad_weather(self, customer_email):
         """Test order processing when the weather is bad."""
@@ -120,7 +163,16 @@ class TestOrderProcessorMocking:
 
         # TODO: Assert result['is_good_weather'] is False
         # TODO: Assert the email body does NOT contain "Enjoy the nice weather"
-        assert False, "TODO: Implement this test"
+        weather_service = Mock(spec=WeatherService)
+        weather_service.is_good_weather.return_value = False
+        notification_service = Mock(spec=NotificationService)
+        notification_service.send_email.return_value = True
+
+        processor = OrderProcessor(weather_service, notification_service)
+        result = processor.process_order("ORD-002", customer_email, "Madrid")
+
+        assert result["is_good_weather"] is False
+        assert "Enjoy the nice weather" not in notification_service.send_email.call_args.args[2]
 
     @patch.object(NotificationService, "send_email")
     @patch.object(WeatherService, "is_good_weather")
@@ -141,7 +193,16 @@ class TestOrderProcessorMocking:
         # TODO: Assert result['notification_sent'] is True
         # TODO: Assert mock_weather was called once with "Barcelona"
         # TODO: Assert mock_email was called once
-        assert False, "TODO: Implement this test"
+        mock_weather.return_value = True
+        mock_email.return_value = True
+        weather_service = WeatherService()
+        notification_service = NotificationService()
+        processor = OrderProcessor(weather_service, notification_service)
+        result = processor.process_order("ORD-003", "test@example.com", "Barcelona")
+
+        assert result["notification_sent"] is True
+        mock_weather.assert_called_once_with("Barcelona")
+        mock_email.assert_called_once()
 
     def test_notification_failure_handling(self, customer_email):
         """Test what the result looks like when sending the email fails."""
@@ -152,7 +213,15 @@ class TestOrderProcessorMocking:
         # TODO: Create an OrderProcessor and call process_order
 
         # TODO: Assert result['notification_sent'] is False
-        assert False, "TODO: Implement this test"
+        weather_service = Mock(spec=WeatherService)
+        weather_service.is_good_weather.return_value = True
+        notification_service = Mock(spec=NotificationService)
+        notification_service.send_email.return_value = False
+
+        processor = OrderProcessor(weather_service, notification_service)
+        result = processor.process_order("ORD-004", customer_email, "Madrid")
+
+        assert result["notification_sent"] is False
 
 
 class TestNotificationServiceDirectly:
@@ -169,4 +238,7 @@ class TestNotificationServiceDirectly:
         # TODO: Assert it returns True
         # TODO: Read the captured output with capsys.readouterr().out
         # TODO: Assert the output mentions the recipient you passed
-        assert False, "TODO: Implement this test"
+        recipient = "test@example.com"
+        result = NotificationService.send_email(recipient, "Subject", "Body")
+        assert result is True
+        assert recipient in capsys.readouterr().out
